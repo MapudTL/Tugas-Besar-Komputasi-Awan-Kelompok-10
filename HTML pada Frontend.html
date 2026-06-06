@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buku Tamu - Kelompok 10</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Desain Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h2, h3 { color: #333; text-align: center; }
+
+        .form-group { margin-bottom: 15px; position: relative; }
+        .form-group i { position: absolute; left: 15px; top: 38px; color: #777; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+        input[type="text"], input[type="password"], textarea {
+            width: 100%; padding: 10px 10px 10px 40px;
+            border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box;
+            transition: 0.3s;
+        }
+        input:focus, textarea:focus { border-color: #667eea; outline: none; }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 12px; border: none; border-radius: 8px;
+            cursor: pointer; width: 100%; font-weight: bold; font-size: 16px;
+            transition: 0.3s;
+        }
+        .btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .btn-danger { background: #ff4757; width: auto; padding: 8px 12px; font-size: 14px; color: white; border: none; border-radius: 8px; cursor: pointer;}
+        .btn-danger:hover { background: #ff6b81; }
+
+        .toggle-link { text-align: center; margin-top: 15px; display: block; color: #667eea; cursor: pointer; text-decoration: underline; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; color: #333; }
+        .empty-state { text-align: center; padding: 30px; color: #777; font-style: italic; }
+
+        /* Navbar Simple */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="auth-section" class="glass-panel">
+    <h2 id="auth-title">Login ke Sistem</h2>
+
+    <div class="form-group">
+        <label>Username</label>
+        <i class="fas fa-user"></i>
+        <input type="text" id="auth-username" placeholder="Masukkan username...">
+    </div>
+    <div class="form-group">
+        <label>Password</label>
+        <i class="fas fa-lock"></i>
+        <input type="password" id="auth-password" placeholder="Masukkan password...">
+    </div>
+
+    <button class="btn" id="auth-btn" onclick="prosesAuth()">Masuk</button>
+    <span class="toggle-link" onclick="toggleAuthMode()">Belum punya akun? Daftar di sini (Maks 10 Akun)</span>
+</div>
+
+<div id="app-section" class="glass-panel" style="display: none;">
+    <div class="header">
+        <h3><i class="fas fa-book-open"></i> Buku Tamu Digital</h3>
+        <div>
+            <button class="btn" style="width:auto; padding: 8px 15px; margin-right: 10px; background: #f1f2f6; color: #333;" onclick="tampilkanProfil()">
+                <i class="fas fa-user-circle"></i> <span id="welcome-text"></span>
+            </button>
+            <button class="btn-danger" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Nama Lengkap</label>
+        <i class="fas fa-id-card"></i>
+        <input type="text" id="nama" placeholder="Nama pengunjung...">
+    </div>
+    <div class="form-group">
+        <label>Asal / Instansi</label>
+        <i class="fas fa-building"></i>
+        <input type="text" id="instansi" placeholder="Perusahaan atau sekolah...">
+    </div>
+    <div class="form-group">
+        <label>Pesan & Kesan</label>
+        <i class="fas fa-comment" style="top: 35px;"></i>
+        <textarea id="pesan" rows="3" placeholder="Tulis pesan Anda..." style="padding-left: 40px;"></textarea>
+    </div>
+    <button class="btn" id="btn-kirim" onclick="simpanTamu()"><i class="fas fa-paper-plane"></i> Kirim Data</button>
+
+    <h3 style="margin-top: 40px;">Riwayat Kehadiran</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Waktu</th>
+                <th>Nama</th>
+                <th>Instansi & Pesan</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody id="tabelTamu">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    const apiUrl = 'http://localhost:5000/api';
+    let isLoginMode = true;
+    let currentUser = null;
+
+    window.onload = () => {
+        const savedUser = localStorage.getItem('user_id');
+        const savedName = localStorage.getItem('username');
+        if(savedUser) {
+            currentUser = { id: savedUser, username: savedName };
+            tampilkanAplikasi();
+        }
+    };
+
+    function toggleAuthMode() {
+        isLoginMode = !isLoginMode;
+        document.getElementById('auth-title').innerText = isLoginMode ? 'Login ke Sistem' : 'Daftar Akun Baru';
+        document.getElementById('auth-btn').innerText = isLoginMode ? 'Masuk' : 'Daftar Sekarang';
+        document.querySelector('.toggle-link').innerText = isLoginMode ? 'Belum punya akun? Daftar di sini (Maks 10 Akun)' : 'Sudah punya akun? Login di sini';
+    }
+
+    function prosesAuth() {
+        const u = document.getElementById('auth-username').value;
+        const p = document.getElementById('auth-password').value;
+        if(!u || !p) return Swal.fire('Oops!', 'Username dan password wajib diisi!', 'warning');
+
+        const endpoint = isLoginMode ? '/login' : '/register';
+
+        fetch(apiUrl + endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: u, password: p })
+        })
+        .then(res => res.json().then(data => ({status: res.status, body: data})))
+        .then(res => {
+            if(res.status !== 200 && res.status !== 201) {
+                Swal.fire('Gagal', res.body.error, 'error');
+            } else {
+                if(isLoginMode) {
+                    Swal.fire({ icon: 'success', title: 'Login Berhasil!', showConfirmButton: false, timer: 1500 });
+                    localStorage.setItem('user_id', res.body.user_id);
+                    localStorage.setItem('username', res.body.username);
+                    currentUser = { id: res.body.user_id, username: res.body.username };
+                    tampilkanAplikasi();
+                } else {
+                    Swal.fire('Berhasil!', 'Akun terdaftar, silakan login.', 'success');
+                    toggleAuthMode();
+                    document.getElementById('auth-password').value = '';
+                }
+            }
+        }).catch(err => console.error(err));
+    }
+
+    function tampilkanAplikasi() {
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('app-section').style.display = 'block';
+        document.getElementById('welcome-text').innerText = currentUser.username;
+        loadTamu();
+    }
+
+    function logout() {
+        localStorage.clear();
+        currentUser = null;
+        document.getElementById('auth-section').style.display = 'block';
+        document.getElementById('app-section').style.display = 'none';
+        document.getElementById('auth-username').value = '';
+        document.getElementById('auth-password').value = '';
+    }
+
+    function loadTamu() {
+        fetch(apiUrl + `/tamu/${currentUser.id}`)
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('tabelTamu');
+                tbody.innerHTML = '';
+
+                if(data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="empty-state"><i class="fas fa-folder-open" style="font-size:30px; display:block; margin-bottom:10px;"></i> Belum ada data. Jadilah yang pertama mengisi!</td></tr>`;
+                    return;
+                }
+
+                data.forEach(item => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td style="color:#888; font-size:14px;"><i class="far fa-clock"></i> ${item.waktu}</td>
+                            <td><strong>${item.nama}</strong></td>
+                            <td><span style="background:#eee; padding:2px 8px; border-radius:10px; font-size:12px;">${item.instansi || '-'}</span><br>${item.pesan}</td>
+                            <td><button class="btn-danger" onclick="hapusTamu(${item.id})"><i class="fas fa-trash"></i> Hapus</button></td>
+                        </tr>
+                    `;
+                });
+            });
+    }
+
+    function simpanTamu() {
+        const btn = document.getElementById('btn-kirim');
+        const data = {
+            nama: document.getElementById('nama').value,
+            instansi: document.getElementById('instansi').value,
+            pesan: document.getElementById('pesan').value,
+            user_id: currentUser.id
+        };
+
+        if(!data.nama || !data.pesan) return Swal.fire('Oops!', 'Nama dan Pesan wajib diisi!', 'warning');
+
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+        btn.disabled = true;
+
+        fetch(apiUrl + '/tamu', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(() => {
+            Swal.fire({ icon: 'success', title: 'Data Tersimpan!', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+            document.getElementById('nama').value = ''; document.getElementById('instansi').value = ''; document.getElementById('pesan').value = '';
+            loadTamu();
+        }).finally(() => {
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Kirim Data';
+            btn.disabled = false;
+        });
+    }
+
+    function hapusTamu(id) {
+        Swal.fire({
+            title: 'Hapus data ini?',
+            text: "Data yang dihapus tidak bisa dikembalikan!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ff4757',
+            cancelButtonColor: '#aaa',
+            confirmButtonText: 'Ya, Hapus!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(apiUrl + `/tamu/${id}`, { method: 'DELETE' })
+                .then(() => {
+                    Swal.fire('Terhapus!', 'Data tamu berhasil dihapus.', 'success');
+                    loadTamu();
+                });
+            }
+        })
+    }
+
+    // Fungsi Profil dan Hapus Akun
+    function tampilkanProfil() {
+        Swal.fire({
+            title: 'Profil Pengguna',
+            html: `
+                <div style="font-size: 50px; color: #667eea; margin-bottom: 10px;"><i class="fas fa-user-circle"></i></div>
+                <h3 style="margin:0; text-transform: uppercase;">${currentUser.username}</h3>
+                <p style="color: #777;">ID Sistem: #00${currentUser.id}</p>
+                <hr style="border: 0.5px solid #eee; margin: 20px 0;">
+                <div style="background: #fff0f0; padding: 10px; border-radius: 8px; border: 1px solid #ffcccc;">
+                    <p style="font-size: 13px; color: #e74c3c; margin: 0;"><strong>Zona Berbahaya:</strong> Menghapus akun akan menghilangkan seluruh data buku tamu Anda secara permanen.</p>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonColor: '#ff4757',
+            cancelButtonColor: '#aaa',
+            confirmButtonText: '<i class="fas fa-trash-alt"></i> Hapus Akun Saya',
+            cancelButtonText: 'Tutup'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                konfirmasiHapusAkun();
+            }
+        });
+    }
+
+    function konfirmasiHapusAkun() {
+        Swal.fire({
+            title: 'Apakah Anda Yakin?',
+            text: "Ketik 'HAPUS' untuk mengonfirmasi keamanan.",
+            input: 'text',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ff4757',
+            confirmButtonText: 'Eksekusi Permanen',
+            preConfirm: (inputValue) => {
+                if (inputValue !== 'HAPUS') {
+                    Swal.showValidationMessage('Teks tidak sesuai. Ketik HAPUS dengan huruf kapital.');
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(apiUrl + `/users/${currentUser.id}`, { method: 'DELETE' })
+                .then(() => {
+                    Swal.fire('Selamat Tinggal!', 'Akun Anda dan seluruh datanya telah dihapus.', 'success')
+                    .then(() => { logout(); });
+                });
+            }
+        });
+    }
+</script>
+</body>
+</html>
